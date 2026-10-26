@@ -28,6 +28,10 @@ _IDENTIFIERS = {
     "shorthand_property_identifier",
     "shorthand_property_identifier_pattern",
     "package_identifier",
+    "constant",
+    "instance_variable",
+    "class_variable",
+    "global_variable",
 }
 
 _LITERALS = {
@@ -62,6 +66,12 @@ _LITERALS = {
     "template_string",
     "regex",
     "regex_literal",
+    "simple_symbol",
+    "hash_key_symbol",
+    "delimited_symbol",
+    "bare_symbol",
+    "rational",
+    "complex",
 }
 
 _OPERATORS = {
@@ -111,6 +121,13 @@ _OPERATORS = {
     ":=",
     "=>",
     "?",
+    "||=",
+    "&&=",
+    "<=>",
+    "=~",
+    "!~",
+    "..",
+    "...",
 }
 
 _CALLS = {
@@ -134,7 +151,7 @@ _SCOPED = {
     "scoped_type_identifier",
 }
 
-_ARG_LISTS = {"argument_list", "arguments"}
+_ARG_LISTS = {"argument_list", "arguments", "block", "do_block"}
 _TYPE_ARGS = {"type_arguments", "type_parameters"}
 
 _DATA: bytes = b""
@@ -164,12 +181,13 @@ def _is_literal(node) -> bool:
 
 
 def _named_before_args(node):
-    incoming = []
-    for child in node.named_children:
+    """Children before the first argument list, and from it on (arguments, then a Ruby block)."""
+
+    named = list(node.named_children)
+    for index, child in enumerate(named):
         if child.type in _ARG_LISTS:
-            return incoming, child
-        incoming.append(child)
-    return incoming, None
+            return named[:index], named[index:]
+    return named, []
 
 
 def _without_type_args(nodes):
@@ -209,7 +227,7 @@ def _try_leaf(node, mode: str, head: bool):
 
 
 def _call_jobs(node):
-    incoming, args = _named_before_args(node)
+    incoming, tail = _named_before_args(node)
     rest, type_args = _without_type_args(incoming)
     jobs = []
     if rest:
@@ -217,8 +235,7 @@ def _call_jobs(node):
         jobs.extend((child, "norm", False) for child in receivers)
         jobs.append((callee, "callee", False))
     jobs.extend((child, "norm", False) for child in type_args)
-    if args is not None:
-        jobs.append((args, "norm", False))
+    jobs.extend((child, "norm", False) for child in tail)
     return jobs
 
 
@@ -284,7 +301,7 @@ def _name_value(name, head: bool, cache):
 
 
 def _assemble_call(node, cache):
-    incoming, args = _named_before_args(node)
+    incoming, tail = _named_before_args(node)
     rest, type_args = _without_type_args(incoming)
     out = [K(node.type)]
     if rest:
@@ -298,8 +315,8 @@ def _assemble_call(node, cache):
         norm = cache[(id(child), "norm", False)]
         if norm is not None:
             out.append(norm)
-    if args is not None:
-        norm = cache[(id(args), "norm", False)]
+    for child in tail:
+        norm = cache[(id(child), "norm", False)]
         if norm is not None:
             out.append(norm)
     return out

@@ -104,6 +104,27 @@ def _python_nodes(data: bytes, root) -> list:
     return found
 
 
+def _ruby_nodes(data: bytes, root) -> list:
+    """Methods and singleton methods. A `def` inside a method stays inside it."""
+
+    found = []
+    for node in descendants(root):
+        if node.type in {"method", "singleton_method"} and not _ruby_nested(node):
+            found.append(node)
+    return found
+
+
+def _ruby_nested(node) -> bool:
+    current = node.parent
+    while current is not None:
+        if current.type in {"method", "singleton_method"}:
+            return True
+        if current.type in {"module", "class", "singleton_class"}:
+            return False
+        current = current.parent
+    return False
+
+
 def _keep_typescript_function(node) -> bool:
     return _has(node, "statement_block") and not _inside(node, _TS_FUNCTION)
 
@@ -149,6 +170,7 @@ _PICKERS = {
     "python": ("python", _python_nodes),
     "typescript": (_grammar, _typescript_nodes),
     "rust": ("rust", _rust_nodes),
+    "ruby": ("ruby", _ruby_nodes),
 }
 
 

@@ -30,6 +30,7 @@ def test_language_detection():
     assert language_of("ui/view.tsx") == "typescript"
     assert language_of("src/lib.rs") == "rust"
     assert language_of("src/dryer/cli.py") == "python"
+    assert language_of("app/models/user.rb") == "ruby"
     assert language_of("types.d.ts") is None
     assert language_of("notes.md") is None
 
@@ -169,6 +170,8 @@ def test_names_that_are_tests():
         "ui/a.spec.cts",
         "tests/conftest.py",
         "pkg/foo_test.py",
+        "app/models/user_test.rb",
+        "app/models/user_spec.rb",
         "pkg/test_foo.py",
         "tests/app.py",
     ]

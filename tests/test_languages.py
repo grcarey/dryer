@@ -111,6 +111,26 @@ pub fn beta(items: Vec<i32>) -> Vec<i32> {
 }
 """
 
+RUBY_LEFT = """\
+class Board
+  def alpha(xs)
+    ys = xs.select { |x| x.odd? }
+    @total = :alpha
+    ys.map(&:to_s)
+  end
+end
+"""
+
+RUBY_RIGHT = """\
+class Panel
+  def beta(items)
+    kept = items.select { |i| i.odd? }
+    @count = :beta
+    kept.map(&:to_s)
+  end
+end
+"""
+
 
 def test_each_language_matches_renamed_locals(tmp_path):
     samples = {
@@ -126,6 +146,8 @@ def test_each_language_matches_renamed_locals(tmp_path):
         "right.tsx": TSX_RIGHT,
         "left.rs": RUST_LEFT,
         "right.rs": RUST_RIGHT,
+        "left.rb": RUBY_LEFT,
+        "right.rb": RUBY_RIGHT,
     }
     for name, source in samples.items():
         write_source(tmp_path, name, source)
@@ -133,7 +155,7 @@ def test_each_language_matches_renamed_locals(tmp_path):
     by_language = {}
     for item in found:
         by_language.setdefault(item.language, []).append(item)
-    assert set(by_language) == {"java", "go", "python", "typescript", "rust"}
+    assert set(by_language) == {"java", "go", "python", "typescript", "rust", "ruby"}
     assert [(item.left.file, item.right.file) for item in by_language["typescript"]] == [
         ("left.ts", "right.ts"),
         ("left.tsx", "right.tsx"),
@@ -237,7 +259,7 @@ class Right {
 
 
 def _suffix(language: str) -> str:
-    return {"python": "py", "go": "go", "rust": "rs", "java": "java", "typescript": "ts"}[language]
+    return {"python": "py", "go": "go", "rust": "rs", "java": "java", "typescript": "ts", "ruby": "rb"}[language]
 
 
 def test_callee_names_stay_and_member_names_do_not(tmp_path):
@@ -610,3 +632,52 @@ def test_a_deep_expression_is_read():
     entries, warning = entries_in_source("clojure", f"(defn place [] {nested})\n", "app.clj", "app.clj")
     assert warning is None
     assert entries
+
+
+def test_a_ruby_block_does_not_hide_the_method_name():
+    select = forms("ruby", "def alpha(xs)\n  xs.select { |x| x }\nend\n", "a.rb")
+    reject = forms("ruby", "def beta(xs)\n  xs.reject { |x| x }\nend\n", "b.rb")
+    assert any("select" in item for item in select[0].fingerprints)
+    found = find_duplicates(select + reject, threshold=0.0)
+    assert len(found) == 1
+    assert found[0].score < 1.0
+
+
+def test_ruby_names_and_literals_normalize_away():
+    left = forms("ruby", "def alpha(xs)\n  @a = foo(xs, 1, :a, key: 'x')\nend\n", "a.rb")
+    right = forms("ruby", "def beta(ys)\n  @b = foo(ys, 2.5, :b, other: 'y')\nend\n", "b.rb")
+    found = find_duplicates(left + right, threshold=0.99)
+    assert len(found) == 1
+    assert found[0].score == 1.0
+
+
+def test_ruby_keeps_methods_and_skips_nested_defs():
+    assert spans(
+        "ruby",
+        """\
+def top
+  1
+end
+
+module Admin
+  class Users
+    def alpha
+      def inner
+        2
+      end
+    end
+
+    def self.beta
+      3
+    end
+
+    class << self
+      def gamma
+        4
+      end
+    end
+  end
+end
+""",
+        "a.rb",
+    ) == [(1, 3), (7, 11), (13, 15), (18, 20)]
