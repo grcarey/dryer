@@ -1,3 +1,5 @@
+> Fork of [unclebob/dryer](https://github.com/unclebob/dryer) at `66ff6d2`, adding Ruby/Rails support (grcarey/agents_and_skills#131).
+
 # dryer
 
 dryer finds candidate duplicate code in Clojure, Java, Go, TypeScript, Rust, Python, and Ruby. One run detects the language of each source file, normalizes that language's forms, and reports pairs whose structure is close enough to review.
