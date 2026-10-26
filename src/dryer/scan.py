@@ -18,13 +18,21 @@ def display_path(path: Path, root: Path) -> str:
         return resolved.as_posix()
 
 
-def _keep(entry: Entry, min_lines: int, min_nodes: int) -> bool:
+# Rails controller actions and strong-params methods look alike by design.
+# ponytail: tuned on one app (online_exam); revisit if other Rails apps still flood.
+_LANGUAGE_MIN_NODES = {"ruby": 65}
+DEFAULT_MIN_NODES = 20
+
+
+def _keep(entry: Entry, min_lines: int, min_nodes: int | None) -> bool:
+    if min_nodes is None:
+        min_nodes = _LANGUAGE_MIN_NODES.get(entry.language, DEFAULT_MIN_NODES)
     lines = entry.end_line - entry.start_line + 1
     return lines >= min_lines and entry.nodes >= min_nodes
 
 
 def scan_files(
-    files: list[Path], root: Path, min_lines: int, min_nodes: int
+    files: list[Path], root: Path, min_lines: int, min_nodes: int | None
 ) -> tuple[list[Entry], list[str]]:
     entries: list[Entry] = []
     warnings: list[str] = []

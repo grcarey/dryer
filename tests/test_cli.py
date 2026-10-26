@@ -268,6 +268,10 @@ def test_a_flag_is_not_a_value(capsys):
     assert "--min-lines requires a value" in capsys.readouterr().err
 
 
+def test_min_nodes_defaults_to_the_language_floor():
+    assert parse_args([]).min_nodes is None
+
+
 def test_zero_is_a_valid_count():
     options = parse_args(["--min-lines", "0", "--min-nodes", "0"])
     assert options.action == "scan"

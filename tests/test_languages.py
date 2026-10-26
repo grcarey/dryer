@@ -681,3 +681,13 @@ end
 """,
         "a.rb",
     ) == [(1, 3), (7, 11), (13, 15), (18, 20)]
+
+
+def test_ruby_has_a_higher_default_node_floor_for_rails_boilerplate():
+    def entry(language: str, nodes: int) -> Entry:
+        return Entry(language, "a", 1, 9, nodes, frozenset())
+
+    assert not _keep(entry("ruby", 30), 4, None)
+    assert _keep(entry("ruby", 65), 4, None)
+    assert _keep(entry("python", 20), 4, None)
+    assert _keep(entry("ruby", 30), 4, 1)
