@@ -355,3 +355,36 @@ def test_a_second_report_replaces_the_snapshot(tmp_path, capsys):
     assert run(args) == 0
     assert run(args) == 0
     assert (tmp_path / ".metrics" / "dry.edn").read_text(encoding="utf-8") == "{:candidates []}\n"
+
+
+def test_focus_keeps_only_pairs_touching_a_focus_file(tmp_path, capsys):
+    body = "def alpha(xs):\n    ys = filter(xs, odd)\n    zs = map(ys, inc)\n    return list(zs)\n"
+    for name in ("a.py", "b.py", "c.py"):
+        write_source(tmp_path, f"src/{name}", body)
+    args = ["--root", str(tmp_path), "--min-lines", "3", "--min-nodes", "1", "src"]
+    assert run(args) == 0
+    everything = capsys.readouterr().out
+    assert "src/b.py" in everything and "src/c.py" in everything
+    assert run([*args, "--focus", "src/a.py"]) == 0
+    out = capsys.readouterr().out
+    assert "src/a.py" in out
+    assert "src/b.py" in out and "src/c.py" in out  # each pairs with a.py
+    assert run([*args, "--focus", "src/b.py", "--format", "edn"]) == 0
+    out = capsys.readouterr().out
+    assert out.count(":score") == 2  # a-b and b-c, not a-c
+    assert (tmp_path / ".metrics/dry.edn").read_text().count(":score") == 2
+
+
+def test_focus_file_outside_the_scope_is_still_compared(tmp_path, capsys):
+    body = "def alpha(xs):\n    ys = filter(xs, odd)\n    zs = map(ys, inc)\n    return list(zs)\n"
+    write_source(tmp_path, "src/a.py", body)
+    write_source(tmp_path, "other/b.py", body)
+    args = ["--root", str(tmp_path), "--min-lines", "3", "--min-nodes", "1"]
+    assert run([*args, "src", "--focus", "other/b.py"]) == 0
+    out = capsys.readouterr().out
+    assert "src/a.py" in out and "other/b.py" in out
+
+
+def test_focus_requires_a_value(capsys):
+    assert run(["--focus"]) == 1
+    assert "--focus requires a value" in capsys.readouterr().err

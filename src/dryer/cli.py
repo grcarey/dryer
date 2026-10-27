@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dryer.discover import SKIP_DIRS, TEST_DIRS, is_test_file, iter_source_files, language_of
 from dryer.report import format_text, render_edn, write_metrics
-from dryer.scan import find_duplicates, scan_files
+from dryer.scan import display_path, find_duplicates, scan_files
 
 
 def _skipped_directory_text() -> str:
@@ -40,6 +40,10 @@ Options:
                                 May be repeated.
   --changed                     Compare added and modified source files from
                                 git status.
+  --focus <path>                Compare everything selected, but report only
+                                pairs where one side is this file. A focus
+                                file is added to the comparison if it is not
+                                already selected. May be repeated.
   --threshold N                 Minimum similarity score, default 0.82.
   --min-lines N                 Minimum source lines in a candidate form,
                                 default 4.
@@ -82,6 +86,7 @@ class Options:
     min_nodes: int | None = None
     format: str = "text"
     changed: bool = False
+    focus: list[str] = field(default_factory=list)
 
 
 def _take(args: list[str], index: int, option: str) -> str:
@@ -122,6 +127,10 @@ def parse_args(argv: list[str] | None = None) -> Options:
                 continue
             if arg == "--root":
                 options.project_root = Path(_take(args, index, arg))
+                index += 2
+                continue
+            if arg == "--focus":
+                options.focus.append(_take(args, index, arg))
                 index += 2
                 continue
             if arg == "--threshold":
@@ -277,10 +286,16 @@ def _apply_filters(files: list[Path], filters: list[str]) -> list[Path]:
     return [path for path in files if any(item in path.as_posix() for item in filters)]
 
 
+def _focus_files(options: Options, root: Path) -> list[Path]:
+    paths = [(root / path).resolve() for path in options.focus]
+    return [path for path in paths if path.is_file() and language_of(path) is not None]
+
+
 def select_files(options: Options) -> list[Path]:
     root = options.project_root.resolve()
     existing, filters = _positionals(root, options.positionals)
     files = _apply_filters(_selected(options, root, existing), filters)
+    files += _focus_files(options, root)
     return sorted({path.resolve() for path in files}, key=lambda path: path.as_posix())
 
 
@@ -308,6 +323,9 @@ def run(argv: list[str] | None = None) -> int:
     for warning in warnings:
         print(f"dryer: {warning}", file=sys.stderr)
     candidates = find_duplicates(entries, options.threshold)
+    if options.focus:
+        focus = {display_path(root / path, root) for path in options.focus}
+        candidates = [c for c in candidates if c.left.file in focus or c.right.file in focus]
     metrics = write_metrics(candidates, root)
     if options.format == "edn":
         print(render_edn(candidates), end="")

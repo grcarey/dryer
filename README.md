@@ -57,12 +57,14 @@ The first run creates `.venv` and installs the tool. From a project root it walk
 ```bash
 ./dryer src/demo src/ui          # these files and trees
 ./dryer --changed                # git additions and edits
+./dryer --focus app/a.rb app     # all of app, only pairs that involve app/a.rb
 ./dryer billing                  # path fragment
 ./dryer --threshold 0.9 src
 ./dryer --edn --min-lines 3 src
 ```
 
 ```text
+--focus PATH     Compare everything selected, report only pairs touching PATH; repeatable
 --threshold N    Minimum structural similarity score, default 0.82
 --min-lines N    Minimum source lines in a candidate form, default 4
 --min-nodes N    Minimum normalized syntax nodes, default 20
